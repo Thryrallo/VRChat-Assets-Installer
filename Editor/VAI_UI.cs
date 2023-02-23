@@ -105,7 +105,7 @@ namespace Thry.VRChatAssetInstaller
             }
             EditorGUI.EndDisabledGroup();
             GUILayout.Label(asset.name, GUILayout.Width(200));
-            GUILayout.Label(asset.author, GUILayout.Width(100));
+            GUILayout.Label(asset.author, GUILayout.Width(150));
             GUILayout.FlexibleSpace();
             if(asset.IsInstalled && asset.HasUpdate)
             {
