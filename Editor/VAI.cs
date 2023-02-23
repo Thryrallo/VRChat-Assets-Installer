@@ -22,17 +22,19 @@ namespace Thry.VRChatAssetInstaller
         private static PackageCollection s_assetCollection = new PackageCollection();
         private static bool s_startedLoading = false;
         private static bool s_isLoading = false;
-        const string DATA_URL = "https://raw.githubusercontent.com/Thryrallo/VRChat-Asset-Installer/master/listing.json";
+        const string DATA_URL = "https://raw.githubusercontent.com/Thryrallo/VRChat-Assets-Installer/master/listing.json";
 
+        [Serializable]
         public enum AssetType
         {
-            UNITYPACKAGE, UPM, VPM
+            UNITYPACKAGE, UPM
         }
 
+        [Serializable]
         public class AssetInfo
         {
             // Lowercase because of json
-            public AssetType type;
+            public string type;
             public bool upmInstallFromUnitypackage;
             public string packageId;
             public string manifest;
@@ -42,17 +44,20 @@ namespace Thry.VRChatAssetInstaller
             public string author;
             public string name;
             public string description;
+            public AssetType Type;
             public bool IsUIExpaned = false;
             public bool IsInstalled;
             public bool IsBeingModified;
+            public bool IsBeingInstalled;
             public bool HasUpdate;
             public UnityEditor.PackageManager.PackageInfo UPM;
         }
 
+        [Serializable]
         private class PackageCollection
         {
-            public List<AssetInfo> curated = new List<AssetInfo>();
-            public List<AssetInfo> other = new List<AssetInfo>();
+            public AssetInfo[] curated = new AssetInfo[0];
+            public AssetInfo[] other = new AssetInfo[0];
         }
 
         public static void Reload()
@@ -60,7 +65,7 @@ namespace Thry.VRChatAssetInstaller
             LoadAssetsListings();
         }
 
-        public static List<AssetInfo> CuratedAssets
+        public static AssetInfo[] CuratedAssets
         {
             get
             {
@@ -70,7 +75,7 @@ namespace Thry.VRChatAssetInstaller
             }
         }
 
-        public static List<AssetInfo> OtherAssets
+        public static AssetInfo[] OtherAssets
         {
             get
             {
@@ -105,15 +110,18 @@ namespace Thry.VRChatAssetInstaller
                 s_assetCollection = JsonUtility.FromJson<PackageCollection>(s);
                 while(installedPackages.IsCompleted == false)
                     Thread.Sleep(100);
-                s_assetCollection.curated.ForEach(m => LoadInfoForAsset(m, installedPackages));
-                s_assetCollection.other.ForEach(m => LoadInfoForAsset(m, installedPackages));
+                s_assetCollection.curated.ToList().ForEach(m => LoadInfoForAsset(m, installedPackages));
+                s_assetCollection.other.ToList().ForEach(m => LoadInfoForAsset(m, installedPackages));
                 s_isLoading = false;
             });
         }
 
         static void LoadInfoForAsset(AssetInfo p, ListRequest installedPackages)
         {
-            if(p.type != AssetType.UNITYPACKAGE)
+            // Unity JsonUtility does not support enums, so we have to do it manually
+            // Fucking unity !
+            p.Type = (AssetType)Enum.Parse(typeof(AssetType), p.type.ToUpper());
+            if(p.Type != AssetType.UNITYPACKAGE)
             {
                 var package = installedPackages.Result.FirstOrDefault(pac => pac.name == p.packageId);
                 p.UPM = package;
@@ -143,45 +151,46 @@ namespace Thry.VRChatAssetInstaller
         static List<AssetInfo> s_packagesToEmbed = new List<AssetInfo>();
         public static void InstallAsset(AssetInfo package)
         {
-            if(package.type != AssetType.UNITYPACKAGE && !package.upmInstallFromUnitypackage) InstallAssetInternal(package, package.git + ".git");
+            if(package.Type != AssetType.UNITYPACKAGE && !package.upmInstallFromUnitypackage) InstallAssetInternal(package, package.git + ".git");
             else GetUnityPackageUrlFromReleases(package, (string url) => InstallAssetInternal(package, url));
         }
 
-        static void InstallAssetInternal(AssetInfo package, string url)
+        static void InstallAssetInternal(AssetInfo asset, string url)
         {
-            if(package.type != AssetType.UNITYPACKAGE && !package.upmInstallFromUnitypackage)
+            asset.IsBeingModified = true;
+            asset.IsBeingInstalled = true;
+            if(asset.Type != AssetType.UNITYPACKAGE && !asset.upmInstallFromUnitypackage)
             {
                 Debug.Log("[UPM] Downloading & Installing " + url);
                 var request = Client.Add(url);
-                package.IsInstalled = true;
-                package.IsBeingModified = true;
                 UPMRequest upmRequest = new UPMRequest();
                 upmRequest.Type = RequestType.INSTALL;
                 upmRequest.Request = request;
-                upmRequest.Package = package;
+                upmRequest.Package = asset;
                 s_requests.Add(upmRequest);
-                PlayerPrefs.SetString("ThryUPMEmbed", package.packageId);
+                PlayerPrefs.SetString("ThryUPMEmbed", asset.packageId);
                 EditorApplication.update += CheckRequests;
             }else
             {
                 Debug.Log("[Unitypackage] Downloading & Installing " + url);
-                package.IsBeingModified = true;
                 var filenname = url.Substring(url.LastIndexOf("/") + 1);
                 var path = Path.Combine(Application.temporaryCachePath, filenname);
                 WebHelper.DownloadFileASync(url, path, (string path2) =>
                 {
                     AssetDatabase.ImportPackage(path2, false);
-                    package.IsInstalled = true;
-                    package.IsBeingModified = false;
+                    asset.IsInstalled = true;
+                    asset.IsBeingModified = false;
                 });
             }
         }
-
+        
+        [Serializable]
         class GitHubAsset
         {
             public string browser_download_url;
         }
 
+        [Serializable]
         class GitHubRelease
         {
             public GitHubAsset[] assets;
@@ -205,7 +214,6 @@ namespace Thry.VRChatAssetInstaller
                             callback(asset.browser_download_url);
                         }
                     }
-                    
                 }catch(Exception e)
                 {
                     Debug.LogError("Error while downloading latest release of " + package.git + ".");
@@ -214,32 +222,32 @@ namespace Thry.VRChatAssetInstaller
             });
         }
 
-        public static void RemoveAsset(AssetInfo package)
+        public static void RemoveAsset(AssetInfo asset)
         {
-            if(package.type != AssetType.UNITYPACKAGE)
+            asset.IsBeingModified = true;
+            asset.IsBeingInstalled = false;
+            if(asset.Type != AssetType.UNITYPACKAGE)
             {
-                var request = Client.Remove(package.packageId);
-                package.IsInstalled = false;
-                package.IsBeingModified = true;
+                var request = Client.Remove(asset.packageId);
                 UPMRequest upmRequest = new UPMRequest();
                 upmRequest.Type = RequestType.UNINSTALL;
                 upmRequest.Request = request;
-                upmRequest.Package = package;
+                upmRequest.Package = asset;
                 EditorApplication.update += CheckRequests;
                 // Deleting Manually because Client.Remove does not work on embedded packages
-                if(package.UPM.assetPath.StartsWith("Packages/"))
+                if(asset.UPM.assetPath.StartsWith("Packages/"))
                 {
-                    package.IsInstalled = false;
-                    package.IsBeingModified = false;
+                    asset.IsInstalled = false;
+                    asset.IsBeingModified = false;
                 }
             }else
             {
-                string path = AssetDatabase.GUIDToAssetPath(package.guid);
-                if(EditorUtility.DisplayDialog("Remove module", "Do you want to delete the folder " + path + "?", "Yes", "No"))
+                string path = AssetDatabase.GUIDToAssetPath(asset.guid);
+                if(EditorUtility.DisplayDialog("Remove asset", "Do you want to delete the folder " + path + "?", "Yes", "No"))
                 {
                     AssetDatabase.DeleteAsset(path);
-                    package.IsInstalled = false;
-                    package.IsBeingModified = false;
+                    asset.IsInstalled = false;
+                    asset.IsBeingModified = false;
                     AssetDatabase.Refresh();
                 }
             }

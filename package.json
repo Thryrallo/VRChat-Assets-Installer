@@ -1,7 +1,7 @@
 {
   "name": "de.thryrallo.vrc.assets-installer",
   "displayName": "VRChat Assets Installer",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Lists VRChat Assets of the type 'unitypackage' and 'UPM' and allows easy one-click download / installs into the project.",
   "gitDependencies": {},
   "legacyFolders": {},
