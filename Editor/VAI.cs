@@ -31,10 +31,17 @@ namespace Thry.VRChatAssetInstaller
         }
 
         [Serializable]
+        public enum AssetCategory
+        {
+            AVATAR, WORLD, BOTH
+        }
+
+        [Serializable]
         public class AssetInfo
         {
             // Lowercase because of json
             public string type;
+            public string vrc;
             public bool upmInstallFromUnitypackage;
             public string packageId;
             public string manifest;
@@ -45,6 +52,7 @@ namespace Thry.VRChatAssetInstaller
             public string name;
             public string description;
             public AssetType Type;
+            public AssetCategory Category;
             public bool IsUIExpaned = false;
             public bool IsInstalled;
             public bool IsBeingModified;
@@ -101,6 +109,25 @@ namespace Thry.VRChatAssetInstaller
             }
         }
 
+        static AssetCategory[] s_supportedAssetCategories;
+        public static AssetCategory[] SupportedAssetCategories
+        {
+            get
+            {
+                if(s_supportedAssetCategories == null)
+                {
+                    bool hasAvatarSDK = FindTypeByFullName("VRC.SDK3.Avatars.Components.VRCAvatarDescriptor") != null;
+                    bool hasWorldSDK = FindTypeByFullName("VRC.SDKBase.VRC_SceneDescriptor") != null;
+                    List<AssetCategory> categories = new List<AssetCategory>();
+                    if (hasAvatarSDK) categories.Add(AssetCategory.AVATAR);
+                    if (hasWorldSDK) categories.Add(AssetCategory.WORLD);
+                    if (categories.Count > 0) categories.Add(AssetCategory.BOTH);
+                    s_supportedAssetCategories = categories.ToArray();
+                }
+                return s_supportedAssetCategories;
+            }
+        }
+
         private static void LoadAssetsListings()
         {
             s_startedLoading = true;
@@ -121,6 +148,9 @@ namespace Thry.VRChatAssetInstaller
             // Unity JsonUtility does not support enums, so we have to do it manually
             // Fucking unity !
             p.Type = (AssetType)Enum.Parse(typeof(AssetType), p.type.ToUpper());
+            p.Category = AssetCategory.BOTH;
+            if(p.vrc == "A") p.Category = AssetCategory.AVATAR;
+            if(p.vrc == "W") p.Category = AssetCategory.WORLD;
             if(p.Type != AssetType.UNITYPACKAGE)
             {
                 var package = installedPackages.Result.FirstOrDefault(pac => pac.name == p.packageId);
@@ -295,6 +325,14 @@ namespace Thry.VRChatAssetInstaller
             }
             if (s_requests.Count == 0)
                 EditorApplication.update -= CheckRequests;
+        }
+
+        static Type FindTypeByFullName(string fullname)
+        {
+            return (from assembly in AppDomain.CurrentDomain.GetAssemblies()
+                    from type in assembly.GetTypes()
+                    where type.FullName == fullname
+                    select type).FirstOrDefault();
         }
     }
 
