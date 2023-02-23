@@ -117,7 +117,7 @@ namespace Thry.VRChatAssetInstaller
                 if(s_supportedAssetCategories == null)
                 {
                     bool hasAvatarSDK = FindTypeByFullName("VRC.SDK3.Avatars.Components.VRCAvatarDescriptor") != null;
-                    bool hasWorldSDK = FindTypeByFullName("VRC.SDKBase.VRC_SceneDescriptor") != null;
+                    bool hasWorldSDK = FindTypeByFullName("VRC.SDK3.Components.VRCSceneDescriptor") != null;
                     List<AssetCategory> categories = new List<AssetCategory>();
                     if (hasAvatarSDK) categories.Add(AssetCategory.AVATAR);
                     if (hasWorldSDK) categories.Add(AssetCategory.WORLD);
@@ -139,6 +139,8 @@ namespace Thry.VRChatAssetInstaller
                     Thread.Sleep(100);
                 s_assetCollection.curated.ToList().ForEach(m => LoadInfoForAsset(m, installedPackages));
                 s_assetCollection.other.ToList().ForEach(m => LoadInfoForAsset(m, installedPackages));
+                s_assetCollection.curated = s_assetCollection.curated.Where(m => SupportedAssetCategories.Contains(m.Category)).OrderBy(m => m.name).ToArray();
+                s_assetCollection.other = s_assetCollection.other.Where(m => SupportedAssetCategories.Contains(m.Category)).OrderBy(m => m.name).ToArray();
                 s_isLoading = false;
             });
         }

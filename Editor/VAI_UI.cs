@@ -8,11 +8,11 @@ namespace Thry.VRChatAssetInstaller
 {
     public class VAI_UI : EditorWindow
     {
-        [MenuItem("Thry/VRC Assets Installer")]
+        [MenuItem("Thry/VRC Asset Installer")]
         public static void ShowWindow()
         {
             VAI_UI window = GetWindow<VAI_UI>("VAI");
-            window.titleContent = new GUIContent("VRChat Assets Installer");
+            window.titleContent = new GUIContent("VRChat Asset Installer");
             window.Show();
         }
 
@@ -63,8 +63,8 @@ namespace Thry.VRChatAssetInstaller
 
         void AssetCollectionUI(VAI.AssetInfo[] assets, string headerName)
         {
-            VAI.AssetInfo[] filtered = assets.Where(a => VAI.SupportedAssetCategories.Contains(a.Category) &&
-                (string.IsNullOrEmpty(_searchTerm) || a.name.ToLower().Contains(_searchTerm.ToLower()))).ToArray();
+            VAI.AssetInfo[] filtered = assets.Where(a =>
+                string.IsNullOrEmpty(_searchTerm) || a.name.ToLower().Contains(_searchTerm.ToLower())).ToArray();
 
             if(filtered.Length == 0)
             {
